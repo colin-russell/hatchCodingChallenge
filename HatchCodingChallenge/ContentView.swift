@@ -285,6 +285,7 @@ struct VideoCellView: View {
                     .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.95), lineWidth: 1))
                     .cornerRadius(10)
                     .padding(.leading, 12)
+                    .padding(.trailing, isEditingLocal ? 12 : 0)
                     // Expand input to fill space when editing to hide the action icons
                     .frame(maxWidth: isEditingLocal ? .infinity : nil)
                     .animation(.easeInOut(duration: 0.22), value: isEditingLocal)
