@@ -15,6 +15,11 @@ final class VideoListViewModel: ObservableObject {
 
     // The id of the currently playing video
     @Published var currentPlayingID: String?
+    // Whether a text input is being edited (disables feed scrolling)
+    @Published var isEditingText: Bool = false
+
+    // Store per-video input text so state survives view updates
+    @Published var inputTexts: [String: String] = [:]
     
     private var hasLoaded: Bool = false
     private let manifestURL = URL(string: "https://cdn.dev.airxp.app/AgentVideos-HLS-Progressive/manifest.json")!
@@ -25,6 +30,24 @@ final class VideoListViewModel: ObservableObject {
     
     init() {
         Task { await loadInitialVideos() }
+    }
+
+    @MainActor
+    func beginEditing() async {
+        isEditingText = true
+        // Pause current playback while typing
+        if let id = currentPlayingID, let idx = videos.firstIndex(where: { $0.id == id }), let pb = videos[idx].playback {
+            pb.pause()
+        }
+    }
+
+    @MainActor
+    func endEditing() async {
+        isEditingText = false
+        // Resume playback for the previously playing video (if any)
+        if let id = currentPlayingID, let idx = videos.firstIndex(where: { $0.id == id }), let pb = videos[idx].playback {
+            pb.play()
+        }
     }
     
     @MainActor
