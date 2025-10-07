@@ -208,10 +208,10 @@ struct VideoCellView: View {
                 }
 
                 // Overlayed input at the bottom of the player (compact; won't fill whole player)
-                HStack {
-                    ZStack(alignment: .leading) {
+                HStack(alignment: .center, spacing: 12) {
+                    // Input HStack: Growing text view + inline send button inside the same rounded background
+                    HStack(spacing: 8) {
                         GrowingTextView(text: bindingForVideo(), placeholder: "Send message", minHeight: 36, maxLines: 5, height: $textHeight) { isEditing in
-                            // update local editing state and inform view model
                             isEditingLocal = isEditing
                             Task {
                                 if isEditing {
@@ -221,20 +221,49 @@ struct VideoCellView: View {
                                 }
                             }
                         }
-                        .frame(maxWidth: .infinity)
                         .frame(height: min(textHeight, CGFloat(5) * 24))
-                        .padding(8)
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(10)
-                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
 
-                        // SwiftUI overlay placeholder to ensure visibility across platforms
-                        if (bindingForVideo().wrappedValue.isEmpty) && !isEditingLocal {
-                            Text("Send message")
-                                .foregroundColor(.secondary)
-                                .padding(.leading, 24)
+                        // Inline send button is inside the same rounded background so it doesn't stick out
+                        Button(action: {
+                            bindingForVideo().wrappedValue = ""
+                            isEditingLocal = false
+                            Task { await viewModel.endEditing() }
+#if canImport(UIKit)
+                            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+#endif
+                        }) {
+                            Image(systemName: "paperplane.fill")
+                                .foregroundColor(.white)
+                                .padding(8)
+                                .background(Circle().fill(Color.accentColor))
+                        }
+                        .disabled(bindingForVideo().wrappedValue.isEmpty)
+                    }
+                    .padding(.horizontal, 10)
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(10)
+                    .padding(.leading, 12)
+
+                    // Action icons to the right of the input
+                    HStack(spacing: 12) {
+                        Button(action: {
+                            // placeholder heart action
+                        }) {
+                            Image(systemName: "heart")
+                                .font(.title2)
+                                .padding(8)
+                        }
+
+                        Button(action: {
+                            // placeholder share action
+                        }) {
+                            Image(systemName: "paperplane")
+                                .font(.title2)
+                                .padding(8)
                         }
                     }
+                    .padding(.trailing, 12)
                 }
                 .padding(.bottom, 12)
             }
