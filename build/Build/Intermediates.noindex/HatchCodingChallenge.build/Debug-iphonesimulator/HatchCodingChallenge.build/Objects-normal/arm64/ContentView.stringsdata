@@ -1,0 +1,32 @@
+{
+  "source": "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/HatchCodingChallenge/ContentView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Videos",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 74
+        }
+      },
+      {
+        "comment": "",
+        "key": "Error: %@",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 43
+        }
+      },
+      {
+        "comment": "",
+        "key": "OK",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 79
+        }
+      }
+    ]
+  },
+  "version": 1
+}

@@ -3,15 +3,15 @@
 
 import Foundation
 import SwiftUI
+import Combine
 
-@Observable
-final class VideoListViewModel {
-    private(set) var videos: [Video] = []
-    private(set) var isLoading: Bool = false
-    var error: String?
-    
+final class VideoListViewModel: ObservableObject {
+    @Published private(set) var videos: [Video] = []
+    @Published private(set) var isLoading: Bool = false
+    @Published var error: String?
+
     // The id of the currently playing video
-    var currentPlayingID: String?
+    @Published var currentPlayingID: String?
     
     private var hasLoaded: Bool = false
     private let manifestURL = URL(string: "https://cdn.dev.airxp.app/AgentVideos-HLS-Progressive/manifest.json")!
@@ -72,6 +72,9 @@ final class VideoListViewModel {
                         if playbackLRU.count > maxCachedPlayers {
                             let removeId = playbackLRU.removeFirst()
                             if removeId != id {
+                                if let evicted = playbackCache[removeId] {
+                                            evicted.shutdown()
+                                        }
                                 playbackCache[removeId] = nil
                                 if let ridx = videos.firstIndex(where: { $0.id == removeId }) {
                                     videos[ridx].playback = nil
@@ -82,13 +85,13 @@ final class VideoListViewModel {
 
                 }
                 if let pb = videos[idx].playback {
-                    await pb.play()
+                    pb.play()
                 }
             } else {
                 // Pause non-active players but keep them cached up to maxCachedPlayers
                 if let pb = videos[idx].playback {
-                    await pb.pause()
-                    await pb.seekToStart()
+                    pb.pause()
+                    pb.seekToStart()
                 }
                 // If this id is not in the LRU (shouldn't happen), ensure it's nil
                 if !playbackLRU.contains(id) {
@@ -115,6 +118,9 @@ final class VideoListViewModel {
                 playbackLRU.append(id)
                 if playbackLRU.count > maxCachedPlayers {
                     let removeId = playbackLRU.removeFirst()
+                    if let evicted = playbackCache[removeId] {
+                        evicted.shutdown()
+                    }
                     playbackCache[removeId] = nil
                     if let ridx = videos.firstIndex(where: { $0.id == removeId }) {
                         videos[ridx].playback = nil
@@ -129,8 +135,8 @@ final class VideoListViewModel {
     func cleanupPlayback(for video: Video) async {
         guard let idx = videos.firstIndex(where: { $0.id == video.id }) else { return }
         if let pb = videos[idx].playback {
-            await pb.pause()
-            await pb.seekToStart()
+            pb.pause()
+            pb.seekToStart()
         }
         let id = videos[idx].id
         // Remove from LRU and maybe keep it in cache depending on cache size

@@ -1,0 +1,59 @@
+{
+  "" : {
+    "diagnostics" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/HatchCodingChallenge-primary.dia",
+    "emit-module-dependencies" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/HatchCodingChallenge-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/HatchCodingChallenge-primary-emit-module.dia",
+    "pch" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/HatchCodingChallenge-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/HatchCodingChallenge-primary.swiftdeps"
+  },
+  "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/HatchCodingChallenge/ContentView.swift" : {
+    "const-values" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/ContentView.swiftconstvalues",
+    "dependencies" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/ContentView.d",
+    "diagnostics" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/ContentView.dia",
+    "index-unit-output-path" : "/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/ContentView.o",
+    "llvm-bc" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/ContentView.bc",
+    "object" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/ContentView.o",
+    "swift-dependencies" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/ContentView.swiftdeps",
+    "swiftmodule" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/ContentView~partial.swiftmodule"
+  },
+  "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/HatchCodingChallenge/HatchCodingChallengeApp.swift" : {
+    "const-values" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/HatchCodingChallengeApp.swiftconstvalues",
+    "dependencies" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/HatchCodingChallengeApp.d",
+    "diagnostics" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/HatchCodingChallengeApp.dia",
+    "index-unit-output-path" : "/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/HatchCodingChallengeApp.o",
+    "llvm-bc" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/HatchCodingChallengeApp.bc",
+    "object" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/HatchCodingChallengeApp.o",
+    "swift-dependencies" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/HatchCodingChallengeApp.swiftdeps",
+    "swiftmodule" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/HatchCodingChallengeApp~partial.swiftmodule"
+  },
+  "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/HatchCodingChallenge/VideoAPIClient.swift" : {
+    "const-values" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/VideoAPIClient.swiftconstvalues",
+    "dependencies" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/VideoAPIClient.d",
+    "diagnostics" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/VideoAPIClient.dia",
+    "index-unit-output-path" : "/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/VideoAPIClient.o",
+    "llvm-bc" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/VideoAPIClient.bc",
+    "object" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/VideoAPIClient.o",
+    "swift-dependencies" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/VideoAPIClient.swiftdeps",
+    "swiftmodule" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/VideoAPIClient~partial.swiftmodule"
+  },
+  "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/HatchCodingChallenge/VideoListViewModel.swift" : {
+    "const-values" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/VideoListViewModel.swiftconstvalues",
+    "dependencies" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/VideoListViewModel.d",
+    "diagnostics" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/VideoListViewModel.dia",
+    "index-unit-output-path" : "/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/VideoListViewModel.o",
+    "llvm-bc" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/VideoListViewModel.bc",
+    "object" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/VideoListViewModel.o",
+    "swift-dependencies" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/VideoListViewModel.swiftdeps",
+    "swiftmodule" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/VideoListViewModel~partial.swiftmodule"
+  },
+  "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/GeneratedAssetSymbols.dia",
+    "index-unit-output-path" : "/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftdeps",
+    "swiftmodule" : "/Users/colinrussell/Desktop/Hatch Coding Challenge/HatchCodingChallenge/build/Build/Intermediates.noindex/HatchCodingChallenge.build/Debug-iphonesimulator/HatchCodingChallenge.build/Objects-normal/arm64/GeneratedAssetSymbols~partial.swiftmodule"
+  }
+}

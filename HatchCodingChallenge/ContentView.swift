@@ -9,7 +9,7 @@ import SwiftUI
 import AVKit
 
 struct ContentView: View {
-    @State private var viewModel = VideoListViewModel()
+    @StateObject private var viewModel = VideoListViewModel()
     
     var body: some View {
         NavigationStack {
