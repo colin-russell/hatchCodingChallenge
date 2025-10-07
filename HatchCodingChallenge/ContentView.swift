@@ -120,6 +120,13 @@ struct GlobalTapDismiss: UIViewRepresentable {
             window.addGestureRecognizer(tap)
             context.coordinator.gesture = tap
             context.coordinator.window = window
+
+            // Also add a pan gesture to dismiss keyboard on swipes/drags outside text inputs.
+            let pan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
+            pan.cancelsTouchesInView = false
+            pan.delegate = context.coordinator
+            window.addGestureRecognizer(pan)
+            context.coordinator.panGesture = pan
         }
         return view
     }
@@ -130,12 +137,16 @@ struct GlobalTapDismiss: UIViewRepresentable {
         if let g = coordinator.gesture, let w = coordinator.window {
             w.removeGestureRecognizer(g)
         }
+        if let p = coordinator.panGesture, let w = coordinator.window {
+            w.removeGestureRecognizer(p)
+        }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     class Coordinator: NSObject, UIGestureRecognizerDelegate {
         weak var gesture: UITapGestureRecognizer?
+        weak var panGesture: UIPanGestureRecognizer?
         weak var window: UIWindow?
 
         @objc func handleTap(_ g: UITapGestureRecognizer) {
@@ -150,11 +161,27 @@ struct GlobalTapDismiss: UIViewRepresentable {
             UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         }
 
+        @objc func handlePan(_ g: UIPanGestureRecognizer) {
+            // Dismiss keyboard when a pan begins outside of text inputs
+            guard g.state == .began else { return }
+            guard let w = window else { return }
+            let loc = g.location(in: w)
+            if let hit = w.hitTest(loc, with: nil) {
+                if containsTextInput(hit) { return }
+            }
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        }
+
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
             if let view = touch.view {
                 // If the touched view or any ancestor/descendant contains a text input, don't intercept
                 if containsTextInput(view) { return false }
             }
+            return true
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+            // Allow our gestures to run alongside scroll view gestures so we don't block scrolling
             return true
         }
 
@@ -338,7 +365,8 @@ struct GrowingTextView: UIViewRepresentable {
         tv.textColor = text.isEmpty ? UIColor.placeholderText : UIColor.label
         tv.font = UIFont.preferredFont(forTextStyle: .body)
         tv.delegate = context.coordinator
-        tv.returnKeyType = .done
+    // Allow newline insertion (default return key behavior)
+    tv.returnKeyType = .default
         tv.backgroundColor = .clear
         // Ensure the UITextView is interactive and editable
         tv.isUserInteractionEnabled = true
@@ -403,12 +431,7 @@ struct GrowingTextView: UIViewRepresentable {
         init(_ parent: GrowingTextView) { self.parent = parent }
 
         func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
-            // Treat newline/Return as Done: dismiss keyboard and end editing
-            if text == "\n" {
-                textView.resignFirstResponder()
-                parent.onEditingChanged(false)
-                return false
-            }
+            // Allow newline characters so the text view supports multi-line input.
             // compute resulting text
             if let current = textView.text as NSString? {
                 let newText = current.replacingCharacters(in: range, with: text)
