@@ -336,9 +336,26 @@ struct GrowingTextView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: UITextView, context: Context) {
-        if uiView.text != text {
-            uiView.text = text
+        // Show the placeholder string when the bound `text` is empty and the text view is not focused.
+        if uiView.isFirstResponder {
+            // When editing, reflect the bound text directly
+            if uiView.text != text {
+                uiView.text = text
+            }
             uiView.textColor = text.isEmpty ? UIColor.placeholderText : UIColor.label
+        } else {
+            // Not editing: show placeholder string if there's no text
+            if text.isEmpty {
+                if uiView.text != placeholder {
+                    uiView.text = placeholder
+                }
+                uiView.textColor = UIColor.placeholderText
+            } else {
+                if uiView.text != text {
+                    uiView.text = text
+                }
+                uiView.textColor = UIColor.label
+            }
         }
 
         let lineHeight = uiView.font?.lineHeight ?? 20
