@@ -4,6 +4,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import AVFoundation
 
 final class VideoListViewModel: ObservableObject {
     @Published private(set) var videos: [Video] = []
@@ -48,54 +49,75 @@ final class VideoListViewModel: ObservableObject {
         }
     }
 
-    // Set which video should be playing. Pauses others and plays the requested one.
+    // Set which video should be playing. Pause only the previous player, start the requested one,
+    // and prefetch the next video's asset (playable key) off the MainActor to warm the network/asset layer.
     @MainActor
     func setPlaying(_ video: Video) async {
         guard currentPlayingID != video.id else { return }
+
+        // Pause previous player (if any) — avoid iterating whole array for performance
+        let previousID = currentPlayingID
         currentPlayingID = video.id
-        for idx in videos.indices {
+        if let prev = previousID, let prevIndex = videos.firstIndex(where: { $0.id == prev }), let prevPB = videos[prevIndex].playback {
+            prevPB.pause()
+            prevPB.seekToStart()
+        }
+
+        // Ensure the requested video's playback is ready (reuse cache or create)
+        if let idx = videos.firstIndex(where: { $0.id == video.id }) {
             let id = videos[idx].id
-            if id == video.id {
-                // Ensure we have a playback instance; reuse from cache if available
-                if videos[idx].playback == nil {
-                    if let cached = playbackCache[id] {
-                        videos[idx].playback = cached
-                        // mark used
-                        if let pos = playbackLRU.firstIndex(of: id) { playbackLRU.remove(at: pos) }
-                        playbackLRU.append(id)
-                    } else {
-                        let pb = await MainActor.run { VideoPlaybackModel(url: videos[idx].url) }
-                        videos[idx].playback = pb
-                        playbackCache[id] = pb
-                        playbackLRU.append(id)
-                        // enforce cache size
-                        if playbackLRU.count > maxCachedPlayers {
-                            let removeId = playbackLRU.removeFirst()
-                            if removeId != id {
-                                if let evicted = playbackCache[removeId] {
-                                            evicted.shutdown()
-                                        }
-                                playbackCache[removeId] = nil
-                                if let ridx = videos.firstIndex(where: { $0.id == removeId }) {
-                                    videos[ridx].playback = nil
-                                }
+            if videos[idx].playback == nil {
+                if let cached = playbackCache[id] {
+                    videos[idx].playback = cached
+                    if let pos = playbackLRU.firstIndex(of: id) { playbackLRU.remove(at: pos) }
+                    playbackLRU.append(id)
+                } else {
+                    let pb = await MainActor.run { VideoPlaybackModel(url: videos[idx].url) }
+                    videos[idx].playback = pb
+                    playbackCache[id] = pb
+                    playbackLRU.append(id)
+                    if playbackLRU.count > maxCachedPlayers {
+                        let removeId = playbackLRU.removeFirst()
+                        if removeId != id {
+                            if let evicted = playbackCache[removeId] {
+                                evicted.shutdown()
+                            }
+                            playbackCache[removeId] = nil
+                            if let ridx = videos.firstIndex(where: { $0.id == removeId }) {
+                                videos[ridx].playback = nil
                             }
                         }
                     }
+                }
+            }
+            if let pb = videos[idx].playback {
+                pb.play()
+            }
+        }
 
+        // Prefetch the next video's asset (playable key) in a detached task to warm caches/network
+        var nextURLs: [URL] = []
+        if let currentIndex = videos.firstIndex(where: { $0.id == video.id }) {
+            let aheadCount = 1 // warm next 1 video; increase to 2 if desired
+            for offset in 1...aheadCount {
+                let ni = currentIndex + offset
+                if ni < videos.count {
+                    nextURLs.append(videos[ni].url)
                 }
-                if let pb = videos[idx].playback {
-                    pb.play()
-                }
-            } else {
-                // Pause non-active players but keep them cached up to maxCachedPlayers
-                if let pb = videos[idx].playback {
-                    pb.pause()
-                    pb.seekToStart()
-                }
-                // If this id is not in the LRU (shouldn't happen), ensure it's nil
-                if !playbackLRU.contains(id) {
-                    videos[idx].playback = nil
+            }
+        }
+
+        if !nextURLs.isEmpty {
+            let urlsToPrefetch = nextURLs
+            Task.detached {
+                for u in urlsToPrefetch {
+                    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                        let asset = AVURLAsset(url: u)
+                        asset.loadValuesAsynchronously(forKeys: ["playable"]) {
+                            // ignore errors, this is a warm-up
+                            continuation.resume()
+                        }
+                    }
                 }
             }
         }
