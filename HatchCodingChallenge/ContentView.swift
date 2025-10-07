@@ -275,13 +275,14 @@ struct VideoCellView: View {
                                 Image(systemName: "paperplane.fill")
                                     .foregroundColor(.white)
                                     .padding(8)
-                                    .background(Circle().fill(Color.accentColor))
+                                    .background(Circle().stroke(Color.white.opacity(0.95), lineWidth: 1))
                             }
                             .transition(.scale.combined(with: .opacity))
                         }
                     }
                     .padding(.horizontal, 10)
-                    .background(.ultraThinMaterial)
+                    .background(Color.clear)
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.95), lineWidth: 1))
                     .cornerRadius(10)
                     .padding(.leading, 12)
                     // Expand input to fill space when editing to hide the action icons
@@ -297,6 +298,7 @@ struct VideoCellView: View {
                                 Image(systemName: "heart")
                                     .font(.title2)
                                     .padding(8)
+                                    .foregroundColor(.white)
                             }
 
                             Button(action: {
@@ -305,6 +307,7 @@ struct VideoCellView: View {
                                 Image(systemName: "paperplane")
                                     .font(.title2)
                                     .padding(8)
+                                    .foregroundColor(.white)
                             }
                         }
                         .padding(.trailing, 12)
@@ -363,8 +366,8 @@ struct GrowingTextView: UIViewRepresentable {
     func makeUIView(context: Context) -> UITextView {
         let tv = UITextView()
         tv.isScrollEnabled = false
-        tv.text = text.isEmpty ? placeholder : text
-        tv.textColor = text.isEmpty ? UIColor.placeholderText : UIColor.label
+    tv.text = text.isEmpty ? placeholder : text
+    tv.textColor = text.isEmpty ? UIColor.white.withAlphaComponent(0.75) : UIColor.white
         tv.font = UIFont.preferredFont(forTextStyle: .body)
         tv.delegate = context.coordinator
     // Allow newline insertion (default return key behavior)
@@ -399,20 +402,20 @@ struct GrowingTextView: UIViewRepresentable {
             if uiView.text != text {
                 uiView.text = text
             }
-            // Always use the label color while editing so typed characters and caret are visible
-            uiView.textColor = UIColor.label
+            // Always use white while editing so typed characters and caret are visible on dark content
+            uiView.textColor = UIColor.white
         } else {
             // Not editing: show placeholder string if there's no text
             if text.isEmpty {
                 if uiView.text != placeholder {
                     uiView.text = placeholder
                 }
-                uiView.textColor = UIColor.placeholderText
+                uiView.textColor = UIColor.white.withAlphaComponent(0.75)
             } else {
                 if uiView.text != text {
                     uiView.text = text
                 }
-                uiView.textColor = UIColor.label
+                uiView.textColor = UIColor.white
             }
         }
 
