@@ -87,6 +87,9 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("Videos")
+            #if canImport(UIKit)
+            .background(GlobalTapDismiss())
+            #endif
             .refreshable {
                 await viewModel.loadInitialVideos()
             }
@@ -97,6 +100,76 @@ struct ContentView: View {
     }
 }
 
+#if canImport(UIKit)
+// Installs a window-level tap recognizer that dismisses the keyboard for taps
+// outside of text inputs (UITextView/UITextField). This avoids blocking
+// other controls because the recognizer is attached directly to the keyWindow
+// and uses a delegate to ignore taps inside text inputs.
+struct GlobalTapDismiss: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: .zero)
+        view.backgroundColor = .clear
+        DispatchQueue.main.async {
+            guard context.coordinator.window == nil else { return }
+            guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                  let window = windowScene.windows.first(where: { $0.isKeyWindow }) else { return }
+
+            let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
+            tap.cancelsTouchesInView = false
+            tap.delegate = context.coordinator
+            window.addGestureRecognizer(tap)
+            context.coordinator.gesture = tap
+            context.coordinator.window = window
+        }
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {}
+
+    static func dismantleUIView(_ uiView: UIView, coordinator: Coordinator) {
+        if let g = coordinator.gesture, let w = coordinator.window {
+            w.removeGestureRecognizer(g)
+        }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        weak var gesture: UITapGestureRecognizer?
+        weak var window: UIWindow?
+
+        @objc func handleTap(_ g: UITapGestureRecognizer) {
+            guard g.state == .ended else { return }
+            guard let w = window else { return }
+            let loc = g.location(in: w)
+            if let hit = w.hitTest(loc, with: nil) {
+                // If the touch landed in a UITextView/UITextField (or their descendants), ignore
+                if hit is UITextView || hit is UITextField { return }
+                var parent = hit.superview
+                while parent != nil {
+                    if parent is UITextView || parent is UITextField { return }
+                    parent = parent?.superview
+                }
+            }
+            // Dismiss keyboard
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            if let view = touch.view {
+                if view is UITextView || view is UITextField { return false }
+                var parent = view.superview
+                while parent != nil {
+                    if parent is UITextView || parent is UITextField { return false }
+                    parent = parent?.superview
+                }
+            }
+            return true
+        }
+    }
+}
+#endif
+
 #Preview {
     ContentView()
 }
@@ -106,6 +179,8 @@ struct ContentView: View {
 struct VideoCellView: View {
     let video: Video
     @ObservedObject var viewModel: VideoListViewModel
+    // Optional tap handler invoked when the player is tapped
+    var onTap: (() -> Void)? = nil
     @State private var text: String = ""
     @State private var textHeight: CGFloat = 40
     @State private var isEditingLocal: Bool = false
@@ -118,6 +193,9 @@ struct VideoCellView: View {
                         .frame(maxWidth: .infinity)
                         .aspectRatio(9.0/16.0, contentMode: .fit)
                         .cornerRadius(12)
+                        .onTapGesture {
+                            onTap?()
+                        }
                 } else {
                     ZStack {
                         Rectangle()
@@ -213,6 +291,7 @@ struct GrowingTextView: UIViewRepresentable {
         tv.textColor = text.isEmpty ? UIColor.placeholderText : UIColor.label
         tv.font = UIFont.preferredFont(forTextStyle: .body)
         tv.delegate = context.coordinator
+        tv.returnKeyType = .done
         tv.backgroundColor = .clear
         tv.textContainerInset = UIEdgeInsets(top: 8, left: 4, bottom: 8, right: 4)
         tv.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -250,6 +329,12 @@ struct GrowingTextView: UIViewRepresentable {
         init(_ parent: GrowingTextView) { self.parent = parent }
 
         func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+            // Treat newline/Return as Done: dismiss keyboard and end editing
+            if text == "\n" {
+                textView.resignFirstResponder()
+                parent.onEditingChanged(false)
+                return false
+            }
             // compute resulting text
             if let current = textView.text as NSString? {
                 let newText = current.replacingCharacters(in: range, with: text)
