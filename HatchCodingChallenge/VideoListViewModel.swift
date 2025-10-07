@@ -34,6 +34,14 @@ final class VideoListViewModel: ObservableObject {
             let fetchedVideos = try await VideoAPIClient.shared.fetchVideos(from: manifestURL)
             videos = fetchedVideos
             hasLoaded = true
+            // Immediately ensure playback for the first video and start it to avoid
+            // a startup race where the view's geometry or preference-based visibility
+            // hasn't been established yet. Running this on the MainActor is safe
+            // because this function is already @MainActor.
+            if let first = videos.first, currentPlayingID == nil {
+                await ensurePlayback(for: first)
+                await setPlaying(first)
+            }
         } catch {
             self.error = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
@@ -68,12 +76,16 @@ final class VideoListViewModel: ObservableObject {
             let id = videos[idx].id
             if videos[idx].playback == nil {
                 if let cached = playbackCache[id] {
-                    videos[idx].playback = cached
+                    var v = videos[idx]
+                    v.playback = cached
+                    videos[idx] = v
                     if let pos = playbackLRU.firstIndex(of: id) { playbackLRU.remove(at: pos) }
                     playbackLRU.append(id)
                 } else {
                     let pb = await MainActor.run { VideoPlaybackModel(url: videos[idx].url) }
-                    videos[idx].playback = pb
+                    var v = videos[idx]
+                    v.playback = pb
+                    videos[idx] = v
                     playbackCache[id] = pb
                     playbackLRU.append(id)
                     if playbackLRU.count > maxCachedPlayers {
@@ -84,13 +96,15 @@ final class VideoListViewModel: ObservableObject {
                             }
                             playbackCache[removeId] = nil
                             if let ridx = videos.firstIndex(where: { $0.id == removeId }) {
-                                videos[ridx].playback = nil
+                                var rv = videos[ridx]
+                                rv.playback = nil
+                                videos[ridx] = rv
                             }
                         }
                     }
                 }
             }
-            if let pb = videos[idx].playback {
+            if let pb = videos.first(where: { $0.id == video.id })?.playback {
                 pb.play()
             }
         }
@@ -111,13 +125,14 @@ final class VideoListViewModel: ObservableObject {
             let urlsToPrefetch = nextURLs
             Task.detached {
                 for u in urlsToPrefetch {
-                    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                        // Warm the asset's playable key using the older async API which
+                        // is compatible across SDKs. This is best-effort and errors are ignored.
                         let asset = AVURLAsset(url: u)
-                        asset.loadValuesAsynchronously(forKeys: ["playable"]) {
-                            // ignore errors, this is a warm-up
-                            continuation.resume()
+                        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                            asset.loadValuesAsynchronously(forKeys: ["playable"]) {
+                                continuation.resume()
+                            }
                         }
-                    }
                 }
             }
         }
@@ -130,12 +145,16 @@ final class VideoListViewModel: ObservableObject {
         if videos[idx].playback == nil {
             let id = videos[idx].id
             if let cached = playbackCache[id] {
-                videos[idx].playback = cached
+                var v = videos[idx]
+                v.playback = cached
+                videos[idx] = v
                 if let pos = playbackLRU.firstIndex(of: id) { playbackLRU.remove(at: pos) }
                 playbackLRU.append(id)
             } else {
                 let pb = await MainActor.run { VideoPlaybackModel(url: videos[idx].url) }
-                videos[idx].playback = pb
+                var v = videos[idx]
+                v.playback = pb
+                videos[idx] = v
                 playbackCache[id] = pb
                 playbackLRU.append(id)
                 if playbackLRU.count > maxCachedPlayers {
@@ -145,7 +164,9 @@ final class VideoListViewModel: ObservableObject {
                     }
                     playbackCache[removeId] = nil
                     if let ridx = videos.firstIndex(where: { $0.id == removeId }) {
-                        videos[ridx].playback = nil
+                        var rv = videos[ridx]
+                        rv.playback = nil
+                        videos[ridx] = rv
                     }
                 }
             }
@@ -169,13 +190,19 @@ final class VideoListViewModel: ObservableObject {
         if playbackCache[id] != nil {
             if playbackLRU.count >= maxCachedPlayers {
                 playbackCache[id] = nil
-                videos[idx].playback = nil
+                var v = videos[idx]
+                v.playback = nil
+                videos[idx] = v
             } else {
                 // keep cached but detach from video model
-                videos[idx].playback = nil
+                var v = videos[idx]
+                v.playback = nil
+                videos[idx] = v
             }
         } else {
-            videos[idx].playback = nil
+            var v = videos[idx]
+            v.playback = nil
+            videos[idx] = v
         }
     }
 }

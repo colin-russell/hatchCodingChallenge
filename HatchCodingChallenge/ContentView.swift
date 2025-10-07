@@ -83,6 +83,14 @@ struct ContentView: View {
                 // Capture the ScrollView height from the outer GeometryReader
                 .onAppear { scrollHeight = outerProxy.size.height }
                 .onChange(of: outerProxy.size) { newSize in scrollHeight = newSize.height }
+                // If videos just loaded and nothing is playing yet, start the first video immediately
+                .onChange(of: viewModel.videos.count) { _ in
+                    guard viewModel.currentPlayingID == nil, let first = viewModel.videos.first else { return }
+                    Task {
+                        await viewModel.ensurePlayback(for: first)
+                        await viewModel.setPlaying(first)
+                    }
+                }
                 // Listen for updates to all cell frames and pick the first fully-visible video to play
                 .onPreferenceChange(VideoFramesKey.self) { frames in
                     // Require N% visibility of the video player's height before autoplay.
