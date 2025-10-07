@@ -244,26 +244,31 @@ struct VideoCellView: View {
                     .background(.ultraThinMaterial)
                     .cornerRadius(10)
                     .padding(.leading, 12)
+                    // Expand input to fill space when editing to hide the action icons
+                    .frame(maxWidth: isEditingLocal ? .infinity : nil)
 
-                    // Action icons to the right of the input
-                    HStack(spacing: 12) {
-                        Button(action: {
-                            // placeholder heart action
-                        }) {
-                            Image(systemName: "heart")
-                                .font(.title2)
-                                .padding(8)
-                        }
+                    // Action icons to the right of the input: hide while editing
+                    if !isEditingLocal {
+                        HStack(spacing: 12) {
+                            Button(action: {
+                                // placeholder heart action
+                            }) {
+                                Image(systemName: "heart")
+                                    .font(.title2)
+                                    .padding(8)
+                            }
 
-                        Button(action: {
-                            // placeholder share action
-                        }) {
-                            Image(systemName: "paperplane")
-                                .font(.title2)
-                                .padding(8)
+                            Button(action: {
+                                // placeholder share action
+                            }) {
+                                Image(systemName: "paperplane")
+                                    .font(.title2)
+                                    .padding(8)
+                            }
                         }
+                        .padding(.trailing, 12)
+                        .transition(.opacity.combined(with: .move(edge: .trailing)))
                     }
-                    .padding(.trailing, 12)
                 }
                 .padding(.bottom, 12)
             }
