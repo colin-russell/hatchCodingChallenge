@@ -7,8 +7,9 @@
 
 import SwiftUI
 import AVKit
+#if canImport(UIKit)
 import UIKit
-
+#endif
 // PreferenceKey to collect frames for each video cell inside the named scroll coordinate space
 private struct VideoFramesKey: PreferenceKey {
     static var defaultValue: [String: CGRect] = [:]
@@ -131,7 +132,7 @@ struct VideoCellView: View {
                 // Overlayed input at the bottom of the player (compact; won't fill whole player)
                 HStack {
                     ZStack(alignment: .leading) {
-                        GrowingTextView(text: bindingForVideo(), placeholder: "Send message", minHeight: 36, maxLines: 5) { isEditing in
+                        GrowingTextView(text: bindingForVideo(), placeholder: "Send message", minHeight: 36, maxLines: 5, height: $textHeight) { isEditing in
                             // update local editing state and inform view model
                             isEditingLocal = isEditing
                             Task {
@@ -143,7 +144,7 @@ struct VideoCellView: View {
                             }
                         }
                         .frame(maxWidth: .infinity)
-                        .frame(height: 36)
+                        .frame(height: min(textHeight, CGFloat(5) * 24))
                         .padding(8)
                         .background(.ultraThinMaterial)
                         .cornerRadius(10)
@@ -194,20 +195,20 @@ struct GrowingTextView: UIViewRepresentable {
     var minHeight: CGFloat = 36
     var maxLines: Int = 5
     var onEditingChanged: (Bool) -> Void
+    @Binding var height: CGFloat
 
-    init(text: Binding<String>, placeholder: String, minHeight: CGFloat = 36, maxLines: Int = 5, onEditingChanged: @escaping (Bool) -> Void) {
+    init(text: Binding<String>, placeholder: String, minHeight: CGFloat = 36, maxLines: Int = 5, height: Binding<CGFloat>, onEditingChanged: @escaping (Bool) -> Void) {
         self._text = text
         self.placeholder = placeholder
         self.minHeight = minHeight
         self.maxLines = maxLines
+        self._height = height
         self.onEditingChanged = onEditingChanged
     }
 
     func makeUIView(context: Context) -> UITextView {
         let tv = UITextView()
-        // Always allow internal scrolling; the SwiftUI frame will keep the visible height small
-        tv.isScrollEnabled = true
-        // Show placeholder string when bound text is empty
+        tv.isScrollEnabled = false
         tv.text = text.isEmpty ? placeholder : text
         tv.textColor = text.isEmpty ? UIColor.placeholderText : UIColor.label
         tv.font = UIFont.preferredFont(forTextStyle: .body)
@@ -216,6 +217,13 @@ struct GrowingTextView: UIViewRepresentable {
         tv.textContainerInset = UIEdgeInsets(top: 8, left: 4, bottom: 8, right: 4)
         tv.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         tv.isEditable = true
+
+        // initial height
+        DispatchQueue.main.async {
+            let h = max(minHeight, tv.contentSize.height)
+            self.height = min(h, CGFloat(maxLines) * (tv.font?.lineHeight ?? 20) + tv.textContainerInset.top + tv.textContainerInset.bottom)
+        }
+
         return tv
     }
 
@@ -225,9 +233,14 @@ struct GrowingTextView: UIViewRepresentable {
             uiView.textColor = text.isEmpty ? UIColor.placeholderText : UIColor.label
         }
 
-        // Keep visible height small; enable internal scrolling when content is larger than visible
-        let visibleHeight: CGFloat = 36
-        uiView.isScrollEnabled = uiView.contentSize.height > visibleHeight
+        let lineHeight = uiView.font?.lineHeight ?? 20
+        let maxHeight = lineHeight * CGFloat(maxLines) + uiView.textContainerInset.top + uiView.textContainerInset.bottom
+        let contentHeight = uiView.contentSize.height
+        uiView.isScrollEnabled = contentHeight > maxHeight
+        let newHeight = max(minHeight, min(contentHeight, maxHeight))
+        DispatchQueue.main.async {
+            self.height = newHeight
+        }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -236,9 +249,20 @@ struct GrowingTextView: UIViewRepresentable {
         var parent: GrowingTextView
         init(_ parent: GrowingTextView) { self.parent = parent }
 
+        func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+            // compute resulting text
+            if let current = textView.text as NSString? {
+                let newText = current.replacingCharacters(in: range, with: text)
+                let lines = newText.components(separatedBy: CharacterSet.newlines)
+                if lines.count > parent.maxLines {
+                    return false
+                }
+            }
+            return true
+        }
+
         func textViewDidBeginEditing(_ textView: UITextView) {
             if textView.textColor == UIColor.placeholderText {
-                // Clear the visual placeholder but don't write it to the model
                 textView.text = ""
                 textView.textColor = UIColor.label
                 parent.text = ""
@@ -258,11 +282,16 @@ struct GrowingTextView: UIViewRepresentable {
         }
 
         func textViewDidChange(_ textView: UITextView) {
-            // Avoid saving the placeholder string into the bound model
             if textView.textColor == UIColor.placeholderText {
                 parent.text = ""
             } else {
                 parent.text = textView.text
+            }
+            let lineHeight = textView.font?.lineHeight ?? 20
+            let maxHeight = lineHeight * CGFloat(parent.maxLines) + textView.textContainerInset.top + textView.textContainerInset.bottom
+            let contentHeight = textView.contentSize.height
+            DispatchQueue.main.async {
+                self.parent.height = max(self.parent.minHeight, min(contentHeight, maxHeight))
             }
         }
     }
@@ -273,11 +302,12 @@ struct GrowingTextView: View {
     var placeholder: String
     var minHeight: CGFloat = 36
     var maxLines: Int = 5
+    @Binding var height: CGFloat
     var onEditingChanged: (Bool) -> Void
 
     var body: some View {
         TextEditor(text: $text)
-            .frame(minHeight: minHeight, maxHeight: CGFloat(maxLines) * 24)
+            .frame(minHeight: minHeight, maxHeight: height)
             .overlay(Group {
                 if text.isEmpty { Text(placeholder).foregroundColor(.secondary).padding(.leading, 6).padding(.top, 8) }
             }, alignment: .topLeading)
