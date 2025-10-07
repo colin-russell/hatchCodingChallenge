@@ -143,13 +143,8 @@ struct GlobalTapDismiss: UIViewRepresentable {
             guard let w = window else { return }
             let loc = g.location(in: w)
             if let hit = w.hitTest(loc, with: nil) {
-                // If the touch landed in a UITextView/UITextField (or their descendants), ignore
-                if hit is UITextView || hit is UITextField { return }
-                var parent = hit.superview
-                while parent != nil {
-                    if parent is UITextView || parent is UITextField { return }
-                    parent = parent?.superview
-                }
+                // If the touch landed in or inside a UITextView/UITextField, ignore
+                if containsTextInput(hit) { return }
             }
             // Dismiss keyboard
             UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
@@ -157,14 +152,27 @@ struct GlobalTapDismiss: UIViewRepresentable {
 
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
             if let view = touch.view {
-                if view is UITextView || view is UITextField { return false }
-                var parent = view.superview
-                while parent != nil {
-                    if parent is UITextView || parent is UITextField { return false }
-                    parent = parent?.superview
-                }
+                // If the touched view or any ancestor/descendant contains a text input, don't intercept
+                if containsTextInput(view) { return false }
             }
             return true
+        }
+
+        // Recursively check descendants and ancestors for UITextView/UITextField
+        private func containsTextInput(_ view: UIView?) -> Bool {
+            guard let v = view else { return false }
+            if v is UITextView || v is UITextField { return true }
+            // check ancestors
+            var parent = v.superview
+            while parent != nil {
+                if parent is UITextView || parent is UITextField { return true }
+                parent = parent?.superview
+            }
+            // check descendants
+            for sub in v.subviews {
+                if containsTextInput(sub) { return true }
+            }
+            return false
         }
     }
 }
@@ -332,6 +340,10 @@ struct GrowingTextView: UIViewRepresentable {
         tv.delegate = context.coordinator
         tv.returnKeyType = .done
         tv.backgroundColor = .clear
+        // Ensure the UITextView is interactive and editable
+        tv.isUserInteractionEnabled = true
+        tv.isSelectable = true
+        tv.isEditable = true
         tv.textContainerInset = UIEdgeInsets(top: 8, left: 4, bottom: 8, right: 4)
         tv.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         tv.isEditable = true
@@ -347,12 +359,18 @@ struct GrowingTextView: UIViewRepresentable {
 
     func updateUIView(_ uiView: UITextView, context: Context) {
         // Show the placeholder string when the bound `text` is empty and the text view is not focused.
+        // Ensure the UITextView remains interactive in case SwiftUI replaces the view
+        uiView.isUserInteractionEnabled = true
+        uiView.isSelectable = true
+        uiView.isEditable = true
+
         if uiView.isFirstResponder {
-            // When editing, reflect the bound text directly
+            // When editing, reflect the bound text directly and ensure visible text color
             if uiView.text != text {
                 uiView.text = text
             }
-            uiView.textColor = text.isEmpty ? UIColor.placeholderText : UIColor.label
+            // Always use the label color while editing so typed characters and caret are visible
+            uiView.textColor = UIColor.label
         } else {
             // Not editing: show placeholder string if there's no text
             if text.isEmpty {
