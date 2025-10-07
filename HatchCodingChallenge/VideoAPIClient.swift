@@ -29,6 +29,8 @@ import os
 
         // Configure buffering/stalling behavior to reduce decoder/network thrash
         self.player.automaticallyWaitsToMinimizeStalling = true
+        // Keep the player alive at item end and handle looping manually
+        self.player.actionAtItemEnd = .none
         // Prefer a small forward buffer to avoid holding too much data in memory
         if #available(iOS 16.0, macOS 13.0, *) {
             item.preferredForwardBufferDuration = 5.0
@@ -84,6 +86,17 @@ import os
             Self.logger.warning("AVPlayerItemPlaybackStalled for URL: \(url.absoluteString, privacy: .public)")
         }
         notificationTokens.append(stalledToken)
+
+        // Looping: when item finishes, seek to start and resume playback
+        let finishedToken = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { _ in
+            Self.logger.debug("AVPlayerItemDidPlayToEndTime for URL: \(url.absoluteString, privacy: .public)")
+            Task { @MainActor in
+                // Seek back to start and resume playback to loop continuously
+                self.player.seek(to: .zero)
+                self.player.play()
+            }
+        }
+        notificationTokens.append(finishedToken)
     }
 
     // Helpers so playback can be controlled safely from MainActor
