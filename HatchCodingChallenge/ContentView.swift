@@ -15,18 +15,23 @@ struct ContentView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
-                    ForEach(viewModel.videos) { video in
+                    ForEach(viewModel.videos, id: \.id) { video in
                         VStack(alignment: .leading) {
                             VideoPlayer(player: video.playback.player)
                                 .frame(maxWidth: .infinity)
                                 .aspectRatio(9.0/16.0, contentMode: .fit) // 9:16 for vertical video
                                 .cornerRadius(12)
-                            Text(video.id)
+
+                            // show short id to help verify unique items in the list
+                            Text(video.id.prefix(80))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                                .lineLimit(1)
                         }
                         .padding(.vertical, 8)
                         .onAppear {
+                            // debug print to confirm each cell's id when it appears
+                            print("Appearing video id: \(video.id)")
                             Task { await viewModel.loadMoreIfNeeded(currentVideo: video) }
                         }
                     }

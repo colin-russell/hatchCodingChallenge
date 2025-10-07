@@ -61,7 +61,10 @@ actor VideoAPIClient {
             // inside the iteration.
             var videos: [Video] = []
             for (idx, videoURL) in manifest.videos.enumerated() {
-                let id = videoURL.deletingPathExtension().lastPathComponent
+                // Use the full absoluteString as the id to ensure uniqueness
+                // Some URLs may share the same filename but differ by path/query,
+                // so filename-only IDs caused duplicate IDs and view reuse.
+                let id = videoURL.absoluteString
                 let playback = await MainActor.run { VideoPlaybackModel(url: videoURL) }
                 videos.append(Video(id: id.isEmpty ? String(idx) : id, playback: playback))
             }
