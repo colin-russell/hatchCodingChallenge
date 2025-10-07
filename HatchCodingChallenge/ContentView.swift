@@ -87,8 +87,7 @@ struct ContentView: View {
                 .onChange(of: viewModel.videos.count) { _ in
                     guard viewModel.currentPlayingID == nil, let first = viewModel.videos.first else { return }
                     Task {
-                        await viewModel.ensurePlayback(for: first)
-                        await viewModel.setPlaying(first)
+                        await viewModel.attemptSetPlayingIfReady(first)
                     }
                 }
                 // Listen for updates to all cell frames and pick the first fully-visible video to play
@@ -107,8 +106,7 @@ struct ContentView: View {
                         if viewModel.currentPlayingID != id {
                             if let videoToPlay = viewModel.videos.first(where: { $0.id == id }) {
                                 Task {
-                                    await viewModel.ensurePlayback(for: videoToPlay)
-                                    await viewModel.setPlaying(videoToPlay)
+                                    await viewModel.attemptSetPlayingIfReady(videoToPlay)
                                     await viewModel.loadMoreIfNeeded(currentVideo: videoToPlay)
                                 }
                             }

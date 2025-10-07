@@ -5,8 +5,10 @@ import Foundation
 import SwiftUI
 import Combine
 import AVFoundation
+import os
 
 final class VideoListViewModel: ObservableObject {
+    private static let logger = Logger(subsystem: "com.colinrussell.HatchCodingChallenge", category: "VideoListViewModel")
     @Published private(set) var videos: [Video] = []
     @Published private(set) var isLoading: Bool = false
     @Published var error: String?
@@ -135,6 +137,38 @@ final class VideoListViewModel: ObservableObject {
                         }
                 }
             }
+        }
+    }
+
+    // Attempt to set the given video as playing only when its playback is ready.
+    // This polls the playback's readiness for a short timeout to avoid switching
+    // to a player that will immediately show a loading spinner or black screen.
+    @MainActor
+    func attemptSetPlayingIfReady(_ video: Video, timeout: TimeInterval = 0.75) async {
+        await ensurePlayback(for: video)
+
+        guard let idx = videos.firstIndex(where: { $0.id == video.id }), let pb = videos[idx].playback else {
+            // couldn't get playback, so no-op
+            return
+        }
+
+        // Poll for readiness for up to `timeout` seconds, checking at 50ms intervals.
+    let intervalNs: UInt64 = 50_000_000 // 50ms in ns
+    let intervalSeconds = Double(intervalNs) / 1_000_000_000.0
+    let maxIterations = Int((timeout / intervalSeconds).rounded())
+        var ready = await pb.isReadyForPlayback()
+        var iter = 0
+        while !ready && iter < maxIterations {
+            try? await Task.sleep(nanoseconds: intervalNs)
+            ready = await pb.isReadyForPlayback()
+            iter += 1
+        }
+
+        // If ready (or timed out), switch to this video. If not ready then don't switch.
+        if ready || iter >= maxIterations {
+            await setPlaying(video)
+        } else {
+            Self.logger.debug("attemptSetPlayingIfReady: video not ready, skipping switch for id=\(video.id)")
         }
     }
 

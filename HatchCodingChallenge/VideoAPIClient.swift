@@ -4,7 +4,7 @@ import AVKit
 import os
 
 @MainActor
-@Observable class VideoPlaybackModel {
+final class VideoPlaybackModel {
     nonisolated private static let logger = Logger(subsystem: "com.colinrussell.HatchCodingChallenge", category: "VideoPlayback")
 
     let player: AVPlayer
@@ -143,6 +143,16 @@ import os
         notificationTokens.removeAll()
         player.pause()
         playerItem = nil
+    }
+
+    // Query whether the current player item is ready for immediate playback.
+    @MainActor
+    func isReadyForPlayback() -> Bool {
+        guard let item = player.currentItem else { return false }
+        // Consider ready if item status is readyToPlay and player isn't stalled waiting
+        let itemReady = item.status == .readyToPlay
+        let notStalled = player.timeControlStatus != .waitingToPlayAtSpecifiedRate
+        return itemReady && notStalled
     }
 }
 
