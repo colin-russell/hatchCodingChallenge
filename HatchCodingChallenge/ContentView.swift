@@ -262,21 +262,23 @@ struct VideoCellView: View {
                         .frame(height: min(textHeight, CGFloat(5) * 24))
                         .padding(.vertical, 6)
 
-                        // Inline send button is inside the same rounded background so it doesn't stick out
-                        Button(action: {
-                            bindingForVideo().wrappedValue = ""
-                            isEditingLocal = false
-                            Task { await viewModel.endEditing() }
+                        // Inline send button is shown only when there is text; otherwise hidden
+                        if !bindingForVideo().wrappedValue.isEmpty {
+                            Button(action: {
+                                bindingForVideo().wrappedValue = ""
+                                isEditingLocal = false
+                                Task { await viewModel.endEditing() }
 #if canImport(UIKit)
-                            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
 #endif
-                        }) {
-                            Image(systemName: "paperplane.fill")
-                                .foregroundColor(.white)
-                                .padding(8)
-                                .background(Circle().fill(Color.accentColor))
+                            }) {
+                                Image(systemName: "paperplane.fill")
+                                    .foregroundColor(.white)
+                                    .padding(8)
+                                    .background(Circle().fill(Color.accentColor))
+                            }
+                            .transition(.scale.combined(with: .opacity))
                         }
-                        .disabled(bindingForVideo().wrappedValue.isEmpty)
                     }
                     .padding(.horizontal, 10)
                     .background(.ultraThinMaterial)
