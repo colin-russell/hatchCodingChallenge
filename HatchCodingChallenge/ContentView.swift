@@ -212,7 +212,10 @@ struct VideoCellView: View {
                     // Input HStack: Growing text view + inline send button inside the same rounded background
                     HStack(spacing: 8) {
                         GrowingTextView(text: bindingForVideo(), placeholder: "Send message", minHeight: 36, maxLines: 5, height: $textHeight) { isEditing in
-                            isEditingLocal = isEditing
+                            // Animate the UI changes when editing begins/ends
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8, blendDuration: 0)) {
+                                isEditingLocal = isEditing
+                            }
                             Task {
                                 if isEditing {
                                     await viewModel.beginEditing()
@@ -246,6 +249,7 @@ struct VideoCellView: View {
                     .padding(.leading, 12)
                     // Expand input to fill space when editing to hide the action icons
                     .frame(maxWidth: isEditingLocal ? .infinity : nil)
+                    .animation(.easeInOut(duration: 0.22), value: isEditingLocal)
 
                     // Action icons to the right of the input: hide while editing
                     if !isEditingLocal {
@@ -267,6 +271,7 @@ struct VideoCellView: View {
                             }
                         }
                         .padding(.trailing, 12)
+                        .animation(.easeInOut(duration: 0.22), value: isEditingLocal)
                         .transition(.opacity.combined(with: .move(edge: .trailing)))
                     }
                 }
