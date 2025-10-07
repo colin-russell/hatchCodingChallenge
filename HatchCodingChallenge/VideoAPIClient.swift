@@ -1,8 +1,21 @@
 import Foundation
+import SwiftUI
+import AVKit
+
+@Observable class VideoPlaybackModel {
+    let player: AVPlayer
+    init(url: URL) {
+        self.player = AVPlayer(url: url)
+    }
+}
 
 struct Video: Identifiable, Equatable {
     let id: String
-    let videoURL: URL
+    let playback: VideoPlaybackModel
+
+    static func == (lhs: Video, rhs: Video) -> Bool {
+        lhs.id == rhs.id
+    }
 }
 
 private struct VideoManifest: Decodable {
@@ -37,12 +50,22 @@ actor VideoAPIClient {
     func fetchVideos(from url: URL) async throws -> [Video] {
         do {
             let (data, _) = try await session.data(from: url)
-            let manifest = try JSONDecoder().decode(VideoManifest.self, from: data)
-            let videos = manifest.videos.enumerated().map { idx, videoURL in
-                // Use the last path component (without extension) as id if possible; else fallback to index
+
+            // VideoManifest's Decodable conformance is main-actor-isolated in this
+            // project's default isolation. Decode on the MainActor to satisfy
+            // actor isolation requirements.
+            let manifest = try await MainActor.run { try JSONDecoder().decode(VideoManifest.self, from: data) }
+
+            // VideoPlaybackModel initializer is also main-actor-isolated; construct
+            // playback objects on the MainActor. Use an async loop so we can await
+            // inside the iteration.
+            var videos: [Video] = []
+            for (idx, videoURL) in manifest.videos.enumerated() {
                 let id = videoURL.deletingPathExtension().lastPathComponent
-                return Video(id: id.isEmpty ? String(idx) : id, videoURL: videoURL)
+                let playback = await MainActor.run { VideoPlaybackModel(url: videoURL) }
+                videos.append(Video(id: id.isEmpty ? String(idx) : id, playback: playback))
             }
+
             return videos
         } catch is DecodingError {
             throw VideoAPIError.decodingFailed

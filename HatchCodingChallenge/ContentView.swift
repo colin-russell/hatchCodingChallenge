@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AVKit
 
 struct ContentView: View {
     @State private var viewModel = VideoListViewModel()
@@ -13,12 +14,15 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
+                LazyVStack(alignment: .leading, spacing: 16) {
                     ForEach(viewModel.videos) { video in
                         VStack(alignment: .leading) {
-                            Label(video.id, systemImage: "video")
-                            Text(video.videoURL.absoluteString)
-                                .font(.footnote)
+                            VideoPlayer(player: video.playback.player)
+                                .frame(maxWidth: .infinity)
+                                .aspectRatio(9.0/16.0, contentMode: .fit) // 9:16 for vertical video
+                                .cornerRadius(12)
+                            Text(video.id)
+                                .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                         .padding(.vertical, 8)
