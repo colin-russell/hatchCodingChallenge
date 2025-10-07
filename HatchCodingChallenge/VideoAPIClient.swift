@@ -2,16 +2,78 @@ import Foundation
 import SwiftUI
 import AVKit
 
+@MainActor
 @Observable class VideoPlaybackModel {
     let player: AVPlayer
+    // Current playback error (if any)
+    var error: String?
+
+    private var playerItem: AVPlayerItem?
+    private var statusObserver: NSKeyValueObservation?
+    private var notificationTokens: [Any] = []
+
     init(url: URL) {
-        self.player = AVPlayer(url: url)
+        let item = AVPlayerItem(url: url)
+        self.playerItem = item
+        self.player = AVPlayer(playerItem: item)
+
+        // KVO for status to detect failures
+        statusObserver = item.observe(\.status, options: [.initial, .new]) { [weak self] item, _ in
+            Task { await MainActor.run {
+                if item.status == .failed {
+                    self?.error = item.error?.localizedDescription ?? "Unknown playback error"
+                } else {
+                    // clear error when becomes ready/unknown
+                    self?.error = nil
+                }
+            }}
+        }
+
+        // Notification for failed-to-play-to-end
+        let failedToken = NotificationCenter.default.addObserver(forName: .AVPlayerItemFailedToPlayToEndTime, object: item, queue: .main) { [weak self] note in
+            let err = note.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? NSError
+            Task { await MainActor.run { self?.error = err?.localizedDescription ?? "Failed to play to end" } }
+        }
+        notificationTokens.append(failedToken)
+
+        // Playback stalled notification
+        let stalledToken = NotificationCenter.default.addObserver(forName: .AVPlayerItemPlaybackStalled, object: item, queue: .main) { [weak self] _ in
+            Task { await MainActor.run { self?.error = "Playback stalled" } }
+        }
+        notificationTokens.append(stalledToken)
+    }
+
+    // Helpers so playback can be controlled safely from MainActor
+    @MainActor
+    func play() {
+        player.play()
+    }
+
+    @MainActor
+    func pause() {
+        player.pause()
+    }
+
+    @MainActor
+    func seekToStart() {
+        player.seek(to: .zero)
+    }
+
+    deinit {
+        // Note: cleanup of KVO/notification tokens must run on the MainActor because
+        // these properties are MainActor-isolated. deinit is not executed on the
+        // MainActor in all cases, so referencing those properties here caused
+        // compilation errors. To avoid that, we intentionally avoid synchronous
+        // access here. If you want to perform explicit cleanup, schedule it on
+        // the MainActor from a controlled spot (e.g. when removing a playback from
+        // the cache). For now we rely on system cleanup when items are deallocated.
     }
 }
 
 struct Video: Identifiable, Equatable {
     let id: String
-    let playback: VideoPlaybackModel
+    let url: URL
+    var playback: VideoPlaybackModel?
 
     static func == (lhs: Video, rhs: Video) -> Bool {
         lhs.id == rhs.id
@@ -62,11 +124,8 @@ actor VideoAPIClient {
             var videos: [Video] = []
             for (idx, videoURL) in manifest.videos.enumerated() {
                 // Use the full absoluteString as the id to ensure uniqueness
-                // Some URLs may share the same filename but differ by path/query,
-                // so filename-only IDs caused duplicate IDs and view reuse.
                 let id = videoURL.absoluteString
-                let playback = await MainActor.run { VideoPlaybackModel(url: videoURL) }
-                videos.append(Video(id: id.isEmpty ? String(idx) : id, playback: playback))
+                videos.append(Video(id: id.isEmpty ? String(idx) : id, url: videoURL, playback: nil))
             }
 
             return videos
