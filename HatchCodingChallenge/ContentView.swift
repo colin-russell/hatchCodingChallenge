@@ -322,9 +322,9 @@ struct VideoCellView: View {
                                 bindingForVideo().wrappedValue = ""
                                 isEditingLocal = false
                                 Task { await viewModel.endEditing() }
-#if canImport(UIKit)
+                                #if canImport(UIKit)
                                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-#endif
+                                #endif
                             }) {
                                 Image(systemName: "paperplane.fill")
                                     .foregroundColor(.white)
