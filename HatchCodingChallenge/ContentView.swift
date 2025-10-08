@@ -7,9 +7,43 @@
 
 import SwiftUI
 import AVKit
+import AVFoundation
 #if canImport(UIKit)
 import UIKit
 #endif
+
+#if canImport(UIKit)
+actor ThumbnailCache {
+    private var cache: [String: UIImage] = [:]
+
+    func thumbnail(for id: String) -> UIImage? {
+        return cache[id]
+    }
+
+    func generateThumbnail(for id: String, url: URL) async -> UIImage? {
+        if let cached = cache[id] {
+            return cached
+        }
+        let asset = AVAsset(url: url)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        do {
+            let cgImage = try generator.copyCGImage(at: .zero, actualTime: nil)
+            let image = UIImage(cgImage: cgImage)
+            cache[id] = image
+            return image
+        } catch {
+            return nil
+        }
+    }
+}
+#else
+actor ThumbnailCache {
+    func thumbnail(for id: String) -> UIImage? { nil }
+    func generateThumbnail(for id: String, url: URL) async -> UIImage? { nil }
+}
+#endif
+
 // PreferenceKey to collect frames for each video cell inside the named scroll coordinate space
 private struct VideoFramesKey: PreferenceKey {
     static var defaultValue: [String: CGRect] = [:]
@@ -22,6 +56,7 @@ struct ContentView: View {
     @StateObject private var viewModel = VideoListViewModel()
     @State private var scrollHeight: CGFloat = 0
     @State private var currentVisibleID: String? = nil
+    private let thumbnailCache = ThumbnailCache()
 
     var body: some View {
         NavigationStack {
@@ -29,7 +64,7 @@ struct ContentView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 16) {
                         ForEach(viewModel.videos, id: \.id) { video in
-                            VideoCellView(video: video, viewModel: viewModel)
+                            VideoCellView(video: video, viewModel: viewModel, thumbnailCache: thumbnailCache)
                                 .scrollTargetLayout()
                                 .background(
                                     GeometryReader { proxy in
@@ -241,11 +276,14 @@ struct GlobalTapDismiss: UIViewRepresentable {
 struct VideoCellView: View {
     let video: Video
     @ObservedObject var viewModel: VideoListViewModel
+    var thumbnailCache: ThumbnailCache
     // Optional tap handler invoked when the player is tapped
     var onTap: (() -> Void)? = nil
     @State private var text: String = ""
     @State private var textHeight: CGFloat = 40
     @State private var isEditingLocal: Bool = false
+    @State private var thumbnail: UIImage? = nil
+    @State private var didRequestThumbnail: Bool = false
 
     var body: some View {
         VStack(alignment: .leading) {
@@ -259,14 +297,28 @@ struct VideoCellView: View {
                             onTap?()
                         }
                 } else {
+                    #if canImport(UIKit)
+                    ZStack {
+                        if let image = thumbnail {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                        } else {
+                            Rectangle().fill(Color.black.opacity(0.1))
+                        }
+                    }
+                    .aspectRatio(9.0/16.0, contentMode: .fit)
+                    .cornerRadius(12)
+                    .frame(maxWidth: .infinity)
+                    #else
                     ZStack {
                         Rectangle()
                             .fill(Color.black.opacity(0.1))
-                            .aspectRatio(9.0/16.0, contentMode: .fit)
-                            .cornerRadius(12)
-                        ProgressView()
                     }
+                    .aspectRatio(9.0/16.0, contentMode: .fit)
+                    .cornerRadius(12)
                     .frame(maxWidth: .infinity)
+                    #endif
                 }
 
                 if video.playback?.error != nil {
@@ -374,6 +426,23 @@ struct VideoCellView: View {
             }
         }
         .padding(.vertical, 8)
+        .onAppear {
+            if !didRequestThumbnail, video.playback == nil {
+                didRequestThumbnail = true
+                #if canImport(UIKit)
+                Task {
+                    if let image = await thumbnailCache.generateThumbnail(for: video.id, url: video.url) {
+                        await MainActor.run { self.thumbnail = image }
+                    }
+                }
+                #endif
+            }
+        }
+        .onChange(of: video.playback != nil) { _, becameNonNil in
+            if becameNonNil {
+                thumbnail = nil
+            }
+        }
     }
 
     private func bindingForVideo() -> Binding<String> {
