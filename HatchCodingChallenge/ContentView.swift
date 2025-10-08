@@ -304,7 +304,7 @@ struct VideoCellView: View {
                     .frame(maxWidth: .infinity)
                 }
 
-                if let err = video.playback?.error {
+                if video.playback?.error != nil {
                     HStack(spacing: 8) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundColor(.yellow)

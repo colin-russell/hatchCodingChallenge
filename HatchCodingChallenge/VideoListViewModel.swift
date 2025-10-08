@@ -31,6 +31,37 @@ final class VideoListViewModel: ObservableObject {
     init() {
         Task { await loadInitialVideos() }
     }
+    
+    /// Loads the `playable` key for the given URL asset with a timeout. Returns true if playable.
+    private func assetIsPlayable(url: URL, timeout: TimeInterval = 8.0) async -> Bool {
+        let asset = AVURLAsset(url: url)
+        // Start async loading using modern AVAsset async property API
+        let loadTask = Task<Bool, Never> {
+            do {
+                let playable = try await asset.load(.isPlayable)
+                return playable
+            } catch {
+                return false
+            }
+        }
+        // Race against timeout
+        let timeoutNs = UInt64(timeout * 1_000_000_000)
+        let result = await withTaskGroup(of: Bool.self, returning: Bool.self) { group in
+            group.addTask { await loadTask.value }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: timeoutNs)
+                return false
+            }
+            var outcome: Bool = false
+            for await value in group {
+                outcome = value
+                break
+            }
+            group.cancelAll()
+            return outcome
+        }
+        return result
+    }
 
     @MainActor
     func beginEditing() async {
@@ -100,36 +131,44 @@ final class VideoListViewModel: ObservableObject {
         if let idx = videos.firstIndex(where: { $0.id == video.id }) {
             let id = videos[idx].id
             if videos[idx].playback == nil {
-                if let cached = playbackCache[id] {
-                    var v = videos[idx]
+                if let cached = self.playbackCache[id] {
+                    var v = self.videos[idx]
                     v.playback = cached
-                    videos[idx] = v
-                    if let pos = playbackLRU.firstIndex(of: id) { playbackLRU.remove(at: pos) }
-                    playbackLRU.append(id)
+                    self.videos[idx] = v
+                    if let pos = self.playbackLRU.firstIndex(of: id) { self.playbackLRU.remove(at: pos) }
+                    self.playbackLRU.append(id)
                 } else {
-                    let pb = await MainActor.run { VideoPlaybackModel(url: videos[idx].url) }
-                    var v = videos[idx]
+                    let url = self.videos[idx].url
+                    let playable = await assetIsPlayable(url: url, timeout: 8.0)
+                    guard playable else {
+                        Self.logger.error("ensurePlayback: asset not playable or timed out for id=\(self.videos[idx].id)")
+                        return
+                    }
+                    let pb = await MainActor.run { VideoPlaybackModel(url: url) }
+                    var v = self.videos[idx]
                     v.playback = pb
-                    videos[idx] = v
-                    playbackCache[id] = pb
-                    playbackLRU.append(id)
-                    if playbackLRU.count > maxCachedPlayers {
-                        let removeId = playbackLRU.removeFirst()
+                    self.videos[idx] = v
+                    self.playbackCache[id] = pb
+                    self.playbackLRU.append(id)
+                    if self.playbackLRU.count > self.maxCachedPlayers {
+                        let removeId = self.playbackLRU.removeFirst()
                         if removeId != id {
-                            if let evicted = playbackCache[removeId] {
+                            if let evicted = self.playbackCache[removeId] {
                                 evicted.shutdown()
                             }
-                            playbackCache[removeId] = nil
-                            if let ridx = videos.firstIndex(where: { $0.id == removeId }) {
-                                var rv = videos[ridx]
+                            self.playbackCache[removeId] = nil
+                            if let ridx = self.videos.firstIndex(where: { $0.id == removeId }) {
+                                var rv = self.videos[ridx]
                                 rv.playback = nil
-                                videos[ridx] = rv
+                                self.videos[ridx] = rv
                             }
                         }
                     }
                 }
             }
-            if let pb = videos.first(where: { $0.id == video.id })?.playback {
+            if let pb = self.videos.first(where: { $0.id == video.id })?.playback {
+                // Optionally wait briefly for readiness before play to avoid spinner
+                _ = pb.isReadyForPlayback()
                 pb.play()
             }
         }
@@ -150,13 +189,13 @@ final class VideoListViewModel: ObservableObject {
             let urlsToPrefetch = nextURLs
             Task.detached {
                 for u in urlsToPrefetch {
-                        // Warm the asset's playable key using the older async API which
-                        // is compatible across SDKs. This is best-effort and errors are ignored.
+                        // Warm the asset's playable key using the modern async property API.
+                        // This is best-effort; errors are intentionally ignored.
                         let asset = AVURLAsset(url: u)
-                        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-                            asset.loadValuesAsynchronously(forKeys: ["playable"]) {
-                                continuation.resume()
-                            }
+                        do {
+                            _ = try await asset.load(.isPlayable)
+                        } catch {
+                            // Ignore errors; this is only a prefetch warm-up.
                         }
                 }
             }
@@ -167,29 +206,29 @@ final class VideoListViewModel: ObservableObject {
     // This polls the playback's readiness for a short timeout to avoid switching
     // to a player that will immediately show a loading spinner or black screen.
     @MainActor
-    func attemptSetPlayingIfReady(_ video: Video, timeout: TimeInterval = 0.75) async {
-        await ensurePlayback(for: video)
+    func attemptSetPlayingIfReady(_ video: Video, timeout: TimeInterval = 1.5) async {
+        await self.ensurePlayback(for: video)
 
-        guard let idx = videos.firstIndex(where: { $0.id == video.id }), let pb = videos[idx].playback else {
+        guard let idx = self.videos.firstIndex(where: { $0.id == video.id }), let pb = self.videos[idx].playback else {
             // couldn't get playback, so no-op
             return
         }
 
         // Poll for readiness for up to `timeout` seconds, checking at 50ms intervals.
-    let intervalNs: UInt64 = 50_000_000 // 50ms in ns
-    let intervalSeconds = Double(intervalNs) / 1_000_000_000.0
-    let maxIterations = Int((timeout / intervalSeconds).rounded())
-        var ready = await pb.isReadyForPlayback()
+        let intervalNs: UInt64 = 50_000_000 // 50ms in ns
+        let intervalSeconds = Double(intervalNs) / 1_000_000_000.0
+        let maxIterations = Int((timeout / intervalSeconds).rounded())
+        var ready = pb.isReadyForPlayback()
         var iter = 0
         while !ready && iter < maxIterations {
             try? await Task.sleep(nanoseconds: intervalNs)
-            ready = await pb.isReadyForPlayback()
+            ready = pb.isReadyForPlayback()
             iter += 1
         }
 
         // If ready (or timed out), switch to this video. If not ready then don't switch.
         if ready || iter >= maxIterations {
-            await setPlaying(video)
+            await self.setPlaying(video)
         } else {
             Self.logger.debug("attemptSetPlayingIfReady: video not ready, skipping switch for id=\(video.id)")
         }
@@ -201,29 +240,35 @@ final class VideoListViewModel: ObservableObject {
         guard let idx = videos.firstIndex(where: { $0.id == video.id }) else { return }
         if videos[idx].playback == nil {
             let id = videos[idx].id
-            if let cached = playbackCache[id] {
-                var v = videos[idx]
+            if let cached = self.playbackCache[id] {
+                var v = self.videos[idx]
                 v.playback = cached
-                videos[idx] = v
-                if let pos = playbackLRU.firstIndex(of: id) { playbackLRU.remove(at: pos) }
-                playbackLRU.append(id)
+                self.videos[idx] = v
+                if let pos = self.playbackLRU.firstIndex(of: id) { self.playbackLRU.remove(at: pos) }
+                self.playbackLRU.append(id)
             } else {
-                let pb = await MainActor.run { VideoPlaybackModel(url: videos[idx].url) }
-                var v = videos[idx]
+                let url = self.videos[idx].url
+                let playable = await self.assetIsPlayable(url: url, timeout: 8.0)
+                guard playable else {
+                    Self.logger.error("ensurePlayback: asset not playable or timed out for id=\(self.videos[idx].id)")
+                    return
+                }
+                let pb = await MainActor.run { VideoPlaybackModel(url: url) }
+                var v = self.videos[idx]
                 v.playback = pb
-                videos[idx] = v
-                playbackCache[id] = pb
-                playbackLRU.append(id)
-                if playbackLRU.count > maxCachedPlayers {
-                    let removeId = playbackLRU.removeFirst()
-                    if let evicted = playbackCache[removeId] {
+                self.videos[idx] = v
+                self.playbackCache[id] = pb
+                self.playbackLRU.append(id)
+                if self.playbackLRU.count > self.maxCachedPlayers {
+                    let removeId = self.playbackLRU.removeFirst()
+                    if let evicted = self.playbackCache[removeId] {
                         evicted.shutdown()
                     }
-                    playbackCache[removeId] = nil
-                    if let ridx = videos.firstIndex(where: { $0.id == removeId }) {
-                        var rv = videos[ridx]
+                    self.playbackCache[removeId] = nil
+                    if let ridx = self.videos.firstIndex(where: { $0.id == removeId }) {
+                        var rv = self.videos[ridx]
                         rv.playback = nil
-                        videos[ridx] = rv
+                        self.videos[ridx] = rv
                     }
                 }
             }
@@ -234,32 +279,33 @@ final class VideoListViewModel: ObservableObject {
     @MainActor
     func cleanupPlayback(for video: Video) async {
         guard let idx = videos.firstIndex(where: { $0.id == video.id }) else { return }
-        if let pb = videos[idx].playback {
+        if let pb = self.videos[idx].playback {
             pb.pause()
             pb.seekToStart()
         }
-        let id = videos[idx].id
+        let id = self.videos[idx].id
         // Remove from LRU and maybe keep it in cache depending on cache size
-        if let pos = playbackLRU.firstIndex(of: id) {
-            playbackLRU.remove(at: pos)
+        if let pos = self.playbackLRU.firstIndex(of: id) {
+            self.playbackLRU.remove(at: pos)
         }
         // If cache is already over capacity, drop this playback; otherwise keep it cached
-        if playbackCache[id] != nil {
-            if playbackLRU.count >= maxCachedPlayers {
-                playbackCache[id] = nil
-                var v = videos[idx]
+        if self.playbackCache[id] != nil {
+            if self.playbackLRU.count >= self.maxCachedPlayers {
+                self.playbackCache[id] = nil
+                var v = self.videos[idx]
                 v.playback = nil
-                videos[idx] = v
+                self.videos[idx] = v
             } else {
                 // keep cached but detach from video model
-                var v = videos[idx]
+                var v = self.videos[idx]
                 v.playback = nil
-                videos[idx] = v
+                self.videos[idx] = v
             }
         } else {
-            var v = videos[idx]
+            var v = self.videos[idx]
             v.playback = nil
-            videos[idx] = v
+            self.videos[idx] = v
         }
     }
 }
+
