@@ -81,38 +81,29 @@ struct ContentView: View {
                 }
                 // Listen for updates to all cell frames and pick the first fully-visible video to play
                 .onPreferenceChange(VideoFramesKey.self) { frames in
+                    // Require N% visibility of the video player's height before autoplay.
                     let requiredFraction: CGFloat = 0.8
-                    // Find the first video that is at least N% visible
-                    let visibleVideos: [(String, CGRect)] = frames.compactMap { (id, frame) in
+                    // Visible rect is from y=0 to y=scrollHeight in the named scroll coordinate space
+                    if let candidate = frames.first(where: { (_, frame) in
                         let visibleTop = max(frame.minY, 0)
                         let visibleBottom = min(frame.maxY, scrollHeight)
                         let visibleHeight = max(visibleBottom - visibleTop, 0)
                         let fractionVisible = (frame.height > 0) ? (visibleHeight / frame.height) : 0
-                        return fractionVisible >= requiredFraction ? (id, frame) : nil
-                    }
-                    // Play the first fully visible video
-                    if let candidate = visibleVideos.first {
-                        let id = candidate.0
+                        return fractionVisible >= requiredFraction
+                    }) {
+                        let id = candidate.key
                         if viewModel.currentPlayingID != id {
                             if let videoToPlay = viewModel.videos.first(where: { $0.id == id }) {
                                 Task {
                                     await viewModel.attemptSetPlayingIfReady(videoToPlay)
+                                    await viewModel.loadMoreIfNeeded(currentVideo: videoToPlay)
                                 }
-                            }
-                        }
-                    }
-                    // Prefetch: if the most visible video is near the end, load more videos ahead of time
-                    if let mostVisibleID = visibleVideos.first?.0, let idx = viewModel.videos.firstIndex(where: { $0.id == mostVisibleID }) {
-                        let remaining = viewModel.videos.count - idx - 1
-                        if remaining <= 2, let lastVideo = viewModel.videos.last {
-                            Task {
-                                await viewModel.loadMoreIfNeeded(currentVideo: lastVideo)
                             }
                         }
                     }
                 }
             }
-            
+            .navigationTitle("Videos")
             #if canImport(UIKit)
             .background(GlobalTapDismiss())
             #endif
@@ -345,7 +336,19 @@ struct VideoCellView: View {
                 .padding(.bottom, 12)
             }
 
-            // (metadata and error text removed — UI shows only the player and overlay)
+            // Metadata below the player (keeps the overlay uncluttered)
+            Text(video.id.prefix(80))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
+            if let err = video.playback?.error {
+                Text("Error: \(err)")
+                    .font(.caption2)
+                    .foregroundColor(.red)
+                    .lineLimit(2)
+                    .padding(.top, 4)
+            }
         }
         .padding(.vertical, 8)
     }
