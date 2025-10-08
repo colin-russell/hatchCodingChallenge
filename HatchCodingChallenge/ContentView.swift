@@ -258,6 +258,33 @@ struct VideoCellView: View {
                     .frame(maxWidth: .infinity)
                 }
 
+                if let err = video.playback?.error {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.yellow)
+                        Text("Couldn't load video")
+                            .foregroundColor(.white)
+                            .font(.footnote)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        Button("Retry") {
+                            Task { await viewModel.ensurePlayback(for: video) }
+                        }
+                        .font(.footnote.weight(.semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.white.opacity(0.15))
+                        .cornerRadius(8)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.black.opacity(0.45))
+                    .cornerRadius(10)
+                    .padding(.bottom, 60) // slightly above the input bar
+                    .transition(.opacity)
+                }
+
                 // Overlayed input at the bottom of the player (compact; won't fill whole player)
                 HStack(alignment: .center, spacing: 12) {
                     // Input HStack: Growing text view + inline send button inside the same rounded background
