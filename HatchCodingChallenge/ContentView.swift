@@ -22,7 +22,6 @@ struct ContentView: View {
     @StateObject private var viewModel = VideoListViewModel()
     @State private var scrollHeight: CGFloat = 0
     @State private var currentVisibleID: String? = nil
-    @State private var isScrollLocked: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -55,26 +54,8 @@ struct ContentView: View {
                 }
                 //.scrollTargetBehavior(.viewAligned)  <-- Removed as per instructions
                 //.scrollPosition(id: $currentVisibleID)  <-- Removed as per instructions
-                .scrollDisabled(viewModel.isEditingText || isScrollLocked)
+                .scrollDisabled(viewModel.isEditingText)
                 .coordinateSpace(name: "scroll")
-                .overlay(alignment: .bottom) {
-                    if isScrollLocked {
-                        HStack(spacing: 8) {
-                            ProgressView()
-                                .tint(.white)
-                            Text("Preparing video…")
-                                .foregroundColor(.white)
-                                .font(.footnote.weight(.semibold))
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(Color.black.opacity(0.7))
-                        .clipShape(Capsule())
-                        .padding(.bottom, 12)
-                        .transition(.opacity)
-                        .animation(.easeInOut(duration: 0.2), value: isScrollLocked)
-                    }
-                }
                 // Capture the ScrollView height from the outer GeometryReader
                 .onAppear { scrollHeight = outerProxy.size.height }
                 .onChange(of: outerProxy.size) { oldSize, newSize in
@@ -99,6 +80,7 @@ struct ContentView: View {
                 // Listen for updates to all cell frames and pick the most visible video to play and center
                 .onPreferenceChange(VideoFramesKey.self) { frames in
                     // Compute which frame is most visible within the scroll viewport
+                    // Visible rect is from y=0 to y=scrollHeight in the named scroll coordinate space
                     let best = frames.max(by: { lhs, rhs in
                         let lFrame = lhs.value
                         let rFrame = rhs.value
@@ -111,39 +93,22 @@ struct ContentView: View {
                         return lVisibleHeight < rVisibleHeight
                     })
 
-                    guard let candidate = best else { return }
-                    let id = candidate.key
-                    let frame = candidate.value
+                    if let candidate = best {
+                        let id = candidate.key
+                        let frame = candidate.value
+                        let visibleTop = max(frame.minY, 0)
+                        let visibleBottom = min(frame.maxY, scrollHeight)
+                        let visibleHeight = max(visibleBottom - visibleTop, 0)
+                        let fractionVisible = frame.height > 0 ? (visibleHeight / frame.height) : 0
 
-                    // Determine visibility fraction
-                    let visibleTop = max(frame.minY, 0)
-                    let visibleBottom = min(frame.maxY, scrollHeight)
-                    let visibleHeight = max(visibleBottom - visibleTop, 0)
-                    let fractionVisible = frame.height > 0 ? (visibleHeight / frame.height) : 0
-
-                    // Only consider switching/locking when the candidate is significantly visible
-                    guard fractionVisible >= 0.4 else { return }
-
-                    // If the target video isn't ready, lock scrolling, prefetch, then unlock.
-                    if let target = viewModel.videos.first(where: { $0.id == id }), target.playback == nil {
-                        if !isScrollLocked {
-                            isScrollLocked = true
-                            Task {
-                                await viewModel.ensurePlayback(for: target)
-                                // Small delay to let layout update after the player becomes ready
-                                try? await Task.sleep(nanoseconds: 120_000_000)
-                                isScrollLocked = false
-                            }
-                        }
-                        return
-                    }
-
-                    // At this point, the candidate is visible enough and ready to play
-                    if viewModel.currentPlayingID != id {
-                        if let videoToPlay = viewModel.videos.first(where: { $0.id == id }) {
-                            Task {
-                                await viewModel.attemptSetPlayingIfReady(videoToPlay)
-                                await viewModel.loadMoreIfNeeded(currentVideo: videoToPlay)
+                        if fractionVisible >= 0.4 {
+                            if viewModel.currentPlayingID != id {
+                                if let videoToPlay = viewModel.videos.first(where: { $0.id == id }) {
+                                    Task {
+                                        await viewModel.attemptSetPlayingIfReady(videoToPlay)
+                                        await viewModel.loadMoreIfNeeded(currentVideo: videoToPlay)
+                                    }
+                                }
                             }
                         }
                     }
