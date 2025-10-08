@@ -21,6 +21,7 @@ private struct VideoFramesKey: PreferenceKey {
 struct ContentView: View {
     @StateObject private var viewModel = VideoListViewModel()
     @State private var scrollHeight: CGFloat = 0
+    @State private var currentVisibleID: String? = nil
 
     var body: some View {
         NavigationStack {
@@ -29,6 +30,7 @@ struct ContentView: View {
                     LazyVStack(alignment: .leading, spacing: 16) {
                         ForEach(viewModel.videos, id: \.id) { video in
                             VideoCellView(video: video, viewModel: viewModel)
+                                .scrollTargetLayout()
                                 .background(
                                     GeometryReader { proxy in
                                         Color.clear
@@ -50,6 +52,8 @@ struct ContentView: View {
                     }
                     .padding()
                 }
+                .scrollTargetBehavior(.paging)
+                .scrollPosition(id: $currentVisibleID)
                 .scrollDisabled(viewModel.isEditingText)
                 .coordinateSpace(name: "scroll")
                 // Capture the ScrollView height from the outer GeometryReader
@@ -59,9 +63,20 @@ struct ContentView: View {
                 }
                 // If videos just loaded and nothing is playing yet, start the first video immediately
                 .onChange(of: viewModel.videos.count) { oldCount, newCount in
-                    guard viewModel.currentPlayingID == nil, let first = viewModel.videos.first else { return }
-                    Task {
-                        await viewModel.attemptSetPlayingIfReady(first)
+                    guard let first = viewModel.videos.first else { return }
+                    if currentVisibleID == nil { currentVisibleID = first.id }
+                    if viewModel.currentPlayingID == nil {
+                        Task { await viewModel.attemptSetPlayingIfReady(first) }
+                    }
+                }
+                .onChange(of: currentVisibleID) { oldID, newID in
+                    guard let newID else { return }
+                    // If the target video's playback isn't ready yet, snap back and prefetch
+                    if let target = viewModel.videos.first(where: { $0.id == newID }), target.playback == nil {
+                        // Trigger preload for the target video
+                        Task { await viewModel.ensurePlayback(for: target) }
+                        // Revert to previous ID if available to prevent fast scrolling ahead
+                        if let oldID { currentVisibleID = oldID }
                     }
                 }
                 // Listen for updates to all cell frames and pick the first fully-visible video to play
