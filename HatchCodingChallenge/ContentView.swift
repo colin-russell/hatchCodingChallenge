@@ -103,10 +103,9 @@ struct ContentView: View {
                     }
                 }
             }
-            .navigationTitle("Videos")
-            #if canImport(UIKit)
+#if canImport(UIKit)
             .background(GlobalTapDismiss())
-            #endif
+#endif
             .refreshable {
                 await viewModel.loadInitialVideos()
             }
@@ -334,20 +333,6 @@ struct VideoCellView: View {
                     }
                 }
                 .padding(.bottom, 12)
-            }
-
-            // Metadata below the player (keeps the overlay uncluttered)
-            Text(video.id.prefix(80))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-
-            if let err = video.playback?.error {
-                Text("Error: \(err)")
-                    .font(.caption2)
-                    .foregroundColor(.red)
-                    .lineLimit(2)
-                    .padding(.top, 4)
             }
         }
         .padding(.vertical, 8)
