@@ -52,8 +52,8 @@ struct ContentView: View {
                     }
                     .padding()
                 }
-                .scrollTargetBehavior(.paging)
-                .scrollPosition(id: $currentVisibleID)
+                //.scrollTargetBehavior(.viewAligned)  <-- Removed as per instructions
+                //.scrollPosition(id: $currentVisibleID)  <-- Removed as per instructions
                 .scrollDisabled(viewModel.isEditingText)
                 .coordinateSpace(name: "scroll")
                 // Capture the ScrollView height from the outer GeometryReader
@@ -75,28 +75,39 @@ struct ContentView: View {
                     if let target = viewModel.videos.first(where: { $0.id == newID }), target.playback == nil {
                         // Trigger preload for the target video
                         Task { await viewModel.ensurePlayback(for: target) }
-                        // Revert to previous ID if available to prevent fast scrolling ahead
-                        if let oldID { currentVisibleID = oldID }
                     }
                 }
-                // Listen for updates to all cell frames and pick the first fully-visible video to play
+                // Listen for updates to all cell frames and pick the most visible video to play and center
                 .onPreferenceChange(VideoFramesKey.self) { frames in
-                    // Require N% visibility of the video player's height before autoplay.
-                    let requiredFraction: CGFloat = 0.8
+                    // Compute which frame is most visible within the scroll viewport
                     // Visible rect is from y=0 to y=scrollHeight in the named scroll coordinate space
-                    if let candidate = frames.first(where: { (_, frame) in
+                    let best = frames.max(by: { lhs, rhs in
+                        let lFrame = lhs.value
+                        let rFrame = rhs.value
+                        let lVisibleTop = max(lFrame.minY, 0)
+                        let lVisibleBottom = min(lFrame.maxY, scrollHeight)
+                        let lVisibleHeight = max(lVisibleBottom - lVisibleTop, 0)
+                        let rVisibleTop = max(rFrame.minY, 0)
+                        let rVisibleBottom = min(rFrame.maxY, scrollHeight)
+                        let rVisibleHeight = max(rVisibleBottom - rVisibleTop, 0)
+                        return lVisibleHeight < rVisibleHeight
+                    })
+
+                    if let candidate = best {
+                        let id = candidate.key
+                        let frame = candidate.value
                         let visibleTop = max(frame.minY, 0)
                         let visibleBottom = min(frame.maxY, scrollHeight)
                         let visibleHeight = max(visibleBottom - visibleTop, 0)
-                        let fractionVisible = (frame.height > 0) ? (visibleHeight / frame.height) : 0
-                        return fractionVisible >= requiredFraction
-                    }) {
-                        let id = candidate.key
-                        if viewModel.currentPlayingID != id {
-                            if let videoToPlay = viewModel.videos.first(where: { $0.id == id }) {
-                                Task {
-                                    await viewModel.attemptSetPlayingIfReady(videoToPlay)
-                                    await viewModel.loadMoreIfNeeded(currentVideo: videoToPlay)
+                        let fractionVisible = frame.height > 0 ? (visibleHeight / frame.height) : 0
+
+                        if fractionVisible >= 0.4 {
+                            if viewModel.currentPlayingID != id {
+                                if let videoToPlay = viewModel.videos.first(where: { $0.id == id }) {
+                                    Task {
+                                        await viewModel.attemptSetPlayingIfReady(videoToPlay)
+                                        await viewModel.loadMoreIfNeeded(currentVideo: videoToPlay)
+                                    }
                                 }
                             }
                         }
